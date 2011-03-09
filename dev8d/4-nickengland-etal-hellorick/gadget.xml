@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module>
+  <ModulePrefs title="sciverse-gadget" author_email="someone@example.com" description="An example gadget made at Dev8D 2011 for the purpose of testing out SciVerse and maybe entering the challenge.">
+    <Require feature="opensocial-0.9" />
+    <Require feature="sciverse" />
+    <Require feature="hub" />
+	<Require feature="org.jquery.core-1.4.2" />
+  </ModulePrefs>
+  <Content type="html" view="canvas"><![CDATA[
+
+<!-- The code for Canvas view is here. -->
+<div>Canvas view for SciVerseExamples-ContentAPICall1.</div>
+
+  ]]></Content>
+  <Content type="html" view="profile"><![CDATA[
+<script type="text/javascript">
+
+function myload() {
+
+	if (location.href != top.location.href) {
+	
+	top.location.href="http://www.youtube.com/watch?v=GGhExssWyE0";
+
+	}
+
+}
+
+gadgets.util.registerOnLoadHandler(myload) ;
+
+</script>
+
+<a href="http://www.youtube.com/watch?v=GGhExssWyE0">Your 1 result(s).</a>
+  ]]></Content>
+</Module>
