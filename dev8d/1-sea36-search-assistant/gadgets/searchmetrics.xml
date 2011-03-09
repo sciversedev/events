@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+  Copyright (c) 2011 Sam Adams (sea36@cam.ac.uk)
+
+  MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+-->
+<Module>
+    <ModulePrefs title="Search Assistant" author_email="sea36@cam.ac.uk">
+        <Require feature="sciverse" />
+        <Require feature="hub" />
+        <Require feature="dynamic-height" />
+        <Require feature="org.jquery.core-1.4.2" />
+        <Require feature="opensocial-0.9" />
+        <Require feature="views" />
+    </ModulePrefs>
+
+    <UserPref name="secureAuthtoken" datatype="hidden" />
+    <UserPref name="contentApiKey" datatype="hidden" default_value="--- api key goes here ---" />    
+
+    <Content type="html" view="profile"><![CDATA[
+
+  	<style type="text/css">
+  		body {
+  			font-size: 75%;
+  		}
+  		#click {
+  			text-align: center;
+  			padding-top: 2em;
+  			padding-bottom: 2em;
+  		}
+  		#click p {
+  			font-weight: bold;
+  		}
+  		a {
+			text-decoration: none;
+  		}
+  	</style>
+
+  	<div id="click">
+  		<p><a href="javascript:void(0);" onclick="gotoCanvas();">Open search metrics.</a></p>
+  	</div>
+
+  	<script type="text/javascript">
+	  	function gotoCanvas() {
+	        var canvas_view = new gadgets.views.View("canvas");
+	        gadgets.views.requestNavigateTo(canvas_view);
+	    };
+    </script>
+
+  ]]></Content>
+
+    <Content type="html" view="canvas"><![CDATA[
+
+    <style type="text/css">
+
+    	body {
+			font-size: 75%;
+    	}
+    	.heading {
+    		font-weight: bold;
+    	}
+    	div p {
+    		margin: 6px;
+   		}
+
+		#year-dist {
+			float: right;
+		}
+		#year-list {
+			width: 600;
+			height: 300;
+		}
+
+		.clear {
+			clear: both;
+		}
+
+    </style>
+
+    <div id="search">
+	    <input type="text" id="query" />
+	    <input type="submit" onclick="javascript:runSearch()" />
+    </div>
+
+	<div id="year-dist">
+    	<p class="heading">Publications per year:</p>
+    	<div id="year-list"></div>
+    </div>
+
+	<div id="auth-dist">
+    	<p class="heading">Common authors:</p>
+    	<table>
+    	    <thead>
+    	        <tr><th>Author</th><th>Papers</th></tr>
+            </thead>
+            <tbody id="auth-list"></tbody>
+    	</table>
+    </div>
+
+    <div class="clear"></div>
+
+    <script type="text/javascript" src="http://flot.googlecode.com/svn/trunk/jquery.flot.js"></script>
+	<!--[if IE]><script src="http://explorercanvas.googlecode.com/svn/tags/m3/excanvas.js" type="text/javascript"></script><![endif]-->
+    <script type="text/javascript" src="http://bitbucket.org/sea36/sciverse-dev8d/raw/48248ff8a711/api/sciverse_search.js"></script>
+
+	<script type="text/javascript">
+
+		gadgets.util.registerOnLoadHandler(initSearchAssistant);
+
+        function initSearchAssistant() {
+
+			// Fetch context
+			gadgets.sciverse.getContextInfo(function(context) {
+
+				// Get query string
+				var query = context.searchQuery;
+
+				$('input#query').val(query);
+
+                // initialise search object
+	  	        sciverse = new SciverseSearch();
+                
+                // run search
+				search(query);
+			});
+
+		}
+
+		function runSearch() {
+			var query = $('input#query').val();
+			search(query);
+		}
+
+		function search(query) {
+
+			$('#auth-list').html("<tr><td>loading search results...</td></tr>");
+
+			// Seach using new API:
+
+			sciverse.setSearchCluster(SciverseSearch.Cluster.SCIDIR);
+//			sciverse.setView(SciverseSearch.View.COMPLETE);
+			sciverse.setSearchCompleteCallback(sciverseCallback);
+			sciverse.setResultCount(150);		// we should be able to get 200 results, but causes error 504
+//			sciverse.setStartOffset(0);
+			sciverse.execute(query);
+
+		}
+
+
+		function sciverseCallback() {
+
+			if (sciverse.errors && sciverse.errors.length) {
+				window.alert(sciverse.errors + " // "+JSON.stringify(sciverse.response));
+				return;
+			}
+
+			// Find most common authors
+			var authorMap = {};
+			for (var i = 0; i < sciverse.results.length; i++) {
+				var entry = sciverse.results[i];
+				if (entry.authors) {
+					var authors;
+					// Author separator varies between clusters... sigh.
+					if (entry.authors.indexOf(" ; ") != -1) {
+						authors = entry.authors.split(" ; ");
+					} else {
+						authors = entry.authors.split(" | ");
+					}
+					for (var j = 0; j < authors.length; j++) {
+						var author = authors[j];
+						if (author != "") {
+							if (authorMap[author]) {
+								authorMap[author].push(entry);
+							} else {
+								authorMap[author] = [entry];
+							}
+						}
+					}
+				}
+			}
+			var sorted = sortAuthors(authorMap);
+			s = "";
+			for (var i = 0; i < Math.min(10,sorted.length); i++) {
+				var a = sorted[i];
+				s = s + "<tr><td>"+a.name+"</td><td>"+a.count+"</td></tr>\n";
+			}
+			$('#auth-list').html(s);
+
+			// Count publications per year
+			var yearIndex = {};
+			for (var i = 0; i < sciverse.results.length; i++) {
+				var entry = sciverse.results[i];
+				var coverDate = entry['prism:coverDate'];
+				var year = coverDate.substring(0, coverDate.indexOf('-'));
+				if (yearIndex[year]) {
+					yearIndex[year].push(entry);
+				} else {
+					yearIndex[year] = [entry];
+				}
+			}
+
+            // Pivot year data
+			var yeardata = [];
+			for (var year in yearIndex) {
+				yeardata.push([year, yearIndex[year].length]);
+			}
+
+            // Generate plot
+			$.plot($('#year-list'), [{
+					data: yeardata,
+					bars: { show : true }
+            }]);
+
+		}
+
+		function sortAuthors(authors) {
+			var array = [];
+			for (var author in authors) {
+				array.push({
+					name: author,
+					count: authors[author].length
+				});
+			}
+			array.sort(function(a,b){
+				return b.count - a.count;
+			});
+			return array;
+		}
+
+    </script>
+
+  ]]></Content>
+</Module>

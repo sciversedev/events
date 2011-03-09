@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+  Copyright (c) 2011 Sam Adams (sea36@cam.ac.uk)
+
+  MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+-->
+<Module>
+
+    <ModulePrefs title="Context Debug Util" author_email="sea36@cam.ac.uk">
+        <Require feature="sciverse" />
+        <Require feature="dynamic-height" />
+        <Require feature="org.jquery.core-1.4.2" />
+        <Require feature="opensocial-0.9" />
+        <Require feature="views" />
+    </ModulePrefs>
+
+    <!-- Define user preference with the same name as the context variable -->
+    <UserPref name="secureAuthtoken" datatype="hidden" />
+
+    <!-- Specify content API key here -->
+    <UserPref name="contentApiKey" datatype="hidden" default_value="-- put api key here --" />
+
+
+    <!-- Define profile view here -->
+    <Content type="html" view="profile"><![CDATA[
+
+  	<style type="text/css">
+  		body {
+  			font-size: 75%;
+  		}
+  		#click {
+  			text-align: center;
+  			padding-top: 2em;
+  			padding-bottom: 2em;
+  		}
+  		#click p {
+  			font-weight: bold;
+  		}
+  		a {
+			text-decoration: none;
+  		}
+  	</style>
+
+  	<div id="click">
+  		<p><a href="javascript:void(0);" onclick="gotoCanvas();">Debug Context</a></p>
+  	</div>
+
+  	<script type="text/javascript">
+	  	function gotoCanvas() {
+	        var canvas_view = new gadgets.views.View("canvas");
+	        gadgets.views.requestNavigateTo(canvas_view);
+	    };
+    </script>
+
+    ]]></Content>
+
+
+    <!-- Define canvas view here -->
+    <Content type="html" view="canvas"><![CDATA[
+
+    <style type="text/css">
+
+    	body {
+			font-size: 75%;
+    	}
+    	.heading {
+    		font-weight: bold;
+    	}
+    	div p {
+    		margin: 6px;
+   		}
+
+    </style>
+
+    <p class="heading">Context:</p>
+    <div id="context"></div>
+
+    <p class="heading">Keys:</p>
+    <div id="keys"></div>
+
+	<script type="text/javascript">
+
+		gadgets.util.registerOnLoadHandler(function() {
+
+			// Fetch context
+			gadgets.sciverse.getContextInfo(function(context) {
+
+                var s = "";
+                for (var k in context) {
+                    s = s + k + " = " + context[k] + "\n";
+                }
+
+                $('#context').html("<pre>"+s+"</pre>");
+
+		        var prefs = new gadgets.Prefs();
+		        $('#keys').html("<pre>"
+		            + "contentApiKey = "+prefs.getString("contentApiKey")+"\n"
+		            + "secureAuthtoken = "+prefs.getString("secureAuthtoken")+"\n"
+		            +"</pre>");
+
+		        gadgets.window.adjustHeight();
+
+		    });
+
+		});
+
+	</script>
+
+  ]]></Content>
+</Module>
