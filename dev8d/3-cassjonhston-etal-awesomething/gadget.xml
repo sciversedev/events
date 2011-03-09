@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module>
+    <ModulePrefs
+            title="SciVerseExamples-ContentAPICall1"
+            author_email="cassjohnston@gmail.com">
+        <Require feature="opensocial-0.9" />
+        <Require feature="sciverse" />
+        <Require feature="hub" />
+        <Require feature="dynamic-height"/>
+        <Require feature="org.jquery.core-1.4.2" />
+    </ModulePrefs>
+    <Content type="html" view="canvas"><![CDATA[<!-- The code for Canvas view is here. -->
+<div>Canvas view for SciVerseExamples-ContentAPICall1.</div>]]></Content>
+    <Content type="html" preferred_height="300" preferred_width="300" view="profile"><![CDATA[  
+
+    <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false">
+	</script>	
+	<script type="text/javascript" > 
+	//<!--
+
+var map;
+var epsg4326;
+var route;
+var routeMarkerIcon;
+var req;
+
+var globalobj;
+var authtoken;
+var api_url = "http://api.elsevier.com/content/search/index:";
+
+var resobj;
+
+function retrieve_author_data(f_obj) {
+        gadgets.sciverse.getContextInfo(context_callback);
+}
+
+function context_callback(result){
+        globalobj = result;
+        // get authtoken for content API call
+        authtoken = result.secureAuthtoken;
+        term = result.searchTerms;
+        makeContentApiCall(globalobj);
+}
+
+function makeContentApiCall(obj2){
+  
+   name_query="";  
+    forename = document.getElementById("forename").value;
+    if(forename != "") {
+      name_query += "authfirst(" + forename + ")";
+    }
+    surname = document.getElementById("surname").value;
+    if(surname != "") {
+      if (name_query != "") {
+       // TO DO: this doesn't work.
+        name_query += "AND";
+      }
+      name_query += "authlastname(" + surname + ")";
+    }
+                   
+         var url = "http://api.elsevier.com/content/search/index:AUTHOR?query="+
+name_query;
+                   
+          var requestHeaders = req_headers();         
+          bkapiMakeRequest(url, authlist_callback, requestHeaders);
+          
+  };
+  
+function  req_headers(){
+            var requestHeaders = {};
+                   requestHeaders['X-ELS-APIKey'] = "your-api-key-here";
+                  requestHeaders['X-ELS-Authtoken'] = authtoken;
+                   requestHeaders['Accept'] = "application/json";
+    
+             return requestHeaders;
+}
+  
+  
+ /*** API for making the request to get the results of the search term
+***/
+  function bkapiMakeRequest(url, callback, requestHeaders) {
+          // add nocache=1 parameter to bkapi request
+          var ts = 1;
+          var sep = "?";
+          if (url.indexOf("?") > -1) {
+                 sep = "&";
+          }
+          url = [ url, sep, "nocache=", ts ].join("");
+          
+          var params = {};
+          params[gadgets.io.RequestParameters.HEADERS] = requestHeaders;
+          params[gadgets.io.RequestParameters.AUTHORIZATION] =
+gadgets.io.AuthorizationType.NONE;
+          params[gadgets.io.RequestParameters.CONTENT_TYPE] =
+gadgets.io.ContentType.JSON;
+          
+          gadgets.io.makeRequest(url, callback, params);
+  };
+   
+  
+  function authlist_callback(obj){
+                        
+              var params = {};
+              params[gadgets.io.RequestParameters.CONTENT_TYPE] =
+gadgets.io.ContentType.JSON;
+  
+              if(obj == null){
+                  var display = "<div>No data. Sorry</div>";
+    	              document.getElementById('content_div').innerHTML =
+display;
+                  return;
+              }
+  
+              var text = obj['text'];
+              //document.getElementById('content_div').innerHTML = text;
+              bkapiResp = obj['text'];
+                           
+              var textJson = gadgets.json.parse(text);
+              
+              if(!textJson){
+                  var display = "<div>No data, Sorry.</div>";
+                  document.getElementById('content_div').innerHTML =
+display;
+                  return;
+              }
+              
+              //alert("4. returned text parsed to JSON. ");
+              var entries = textJson['search-results']['entry'];
+//              requestCounter = entries.length;
+            display_text = parse_author_entries(entries);          
+        
+             document.getElementById('content_div').innerHTML = display_text;
+  };
+  
+ function parse_author_entries(entries){
+    var text = "<div>";
+    for(i=0; i < entries.length;  i++){
+        ent = entries[i];
+         auth_id = ent["dc:identifier"];
+        auth_obj =ent["preferred-name"];
+        auth_name = auth_obj["given-name"] + " " + auth_obj["surname"];
+        affil_obj = ent["affiliation-current"];
+        affil_name = affil_obj["affiliation-name"];
+        affil_city = affil_obj['affiliation-city'];
+        affil_country = affil_obj['affiliation-country'];
+        
+        text +=  "<a href=\"#\" onclick=\"";
+        text += "make_author_request('" +auth_name + ", " + affil_name +"','"+affil_city+ ",+" + affil_country + "'); return false;\">";
+        text += auth_name + ", " + affil_name;
+        text += "</a><br />";
+    }    
+   text +="</div>";
+  return text;
+ }
+  
+ 
+ function make_author_request(auth_id, affil_loc){
+       mapPlacename(auth_id, affil_loc);
+ }        
+        
+   function mapPlacename(auth_string, address) {
+      //url = "http://maps.googleapis.com/maps/api/geocode/json?address=" + address;
+          
+      //var params = {};
+      //var requestHeaders = req_headers();         
+      //params[gadgets.io.RequestParameters.HEADERS] = requestHeaders;
+      //params[gadgets.io.RequestParameters.AUTHORIZATION] = gadgets.io.AuthorizationType.NONE;
+      //params[gadgets.io.RequestParameters.CONTENT_TYPE] = gadgets.io.ContentType.JSON;
+      //gadgets.io.makeRequest(url, latLngCallback, params);
+        
+      mapLatLong(34.05, -118.25, auth_string);  
+      document.getElementById('content_div').innerHTML = "";
+      gadgets.window.adjustHeight();
+      
+   
+   }
+
+  function mapLatLong(lat, lng, auth_string) {
+    
+    var latlng = new google.maps.LatLng(lat, lng);
+    var latlngcenter = new google.maps.LatLng(lat-0.05, lng+0.15);
+    var myOptions = {
+      zoom: 8,
+      center: latlngcenter,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: false,
+      streetViewControl: false
+    };
+    var map = new google.maps.Map(document.getElementById("map_canvas"),
+        myOptions);
+	var marker = new google.maps.Marker({
+      position: latlng, 
+      map: map, 
+      title: auth_string
+  });           
+  infowindow = new google.maps.InfoWindow();
+  infowindow.setContent(auth_string);
+  infowindow.setPosition(latlng);
+
+  infowindow.open(map);  
+  }
+
+
+
+        
+//-->  
+</script>
+
+<!-- The code for Profile view is here. -->
+<!--a href="javascript: retrieve_author_data();">run</a-->
+<div id="form_div">
+
+<form onsubmit="return false;">
+    <div>
+    <label for="forename">Forename</label>
+    <input type="text" id="forename" /><br/>
+     <label for="surname">Surname</label>
+     <input type="text" id="surname"/><br/>
+     </div>
+     <input type="button" name="submit" onclick=retrieve_author_data(this)  value="Search for Author Profile" />
+</form>
+</div>
+<div id="content_div" ></div>
+<div id="map_canvas" style="width:300px; height:300px;"></div>
+]]></Content>
+    <Content type="html" view="sciverseResultsView"><![CDATA[<!-- The code for Sciverse Results View view is here. -->
+<div>Sciverse Results View view for
+SciVerseE
+xamples-ContentAPICall1.</div>]]></Content>
+</Module>
